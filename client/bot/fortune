@@ -25,10 +25,13 @@ my $p;
 $client->on(
 	connected => sub {
 		$client->MSG('#all', "See my fortunes!!!");
-		warn 'X' x 99;
+		#warn 'X' x 99;
 
 		$p = AE::timer 0, 60, sub {
-	    			$client->MSG('#all', `fortune`);
+					my $req = `fortune`;
+					#$req =~ s/\n/ /msg;
+					$req =~ s/\s+/ /msg;
+	    			$client->MSG('#all', "Fresh fortune: ".$req);
 	    			$p;
 				};
 	},
