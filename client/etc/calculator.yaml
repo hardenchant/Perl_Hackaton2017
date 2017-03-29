@@ -1,5 +1,5 @@
 host: 127.0.0.1
 port: 2345
 trace: false
-nick: "calc_bot"
-bot_id: "calulator"
+nick: "calculator"
+bot_id: "calculator"

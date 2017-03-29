@@ -27,10 +27,6 @@ while (1) {
 			host    => $config->{host},
 			port    => $config->{port},
 			trace   => $config->{trace},
-			on_room => sub {
-				my ($srv, $message) = @_;
-				$srv->message("Waiting for message");
-			},
 			on_msg => sub {
 				my ( $srv, $message ) = @_;
 				if ($message->{text} eq '!who') {
@@ -39,10 +35,7 @@ while (1) {
 					$srv->message($message->{text});
 				}
 			},
-			on_error => sub {
-				my ( $srv, $message ) = @_;
-				die "Error message: ". Data::Dumper->Dump([$message], ['message']);
-			},
+	
 		);
 		$bot->poll;
 	} or do {
