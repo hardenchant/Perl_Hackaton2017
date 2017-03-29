@@ -69,17 +69,15 @@ my $client = Local::Chat::Client->new(
             return 1 unless length $msg;
             $term->addhistory( $msg );
             if ( $msg =~ m{^/(\w+)(?:\s+(\S+))*$} ) {
-            	my $room_name = $2;
                 if ( $1 eq 'join' ) {
-					if (not defined $room_name) {
+					if (not defined $2) {
 						$interface->add_message( "Forget room name", RED );
 						return 1;
 					}
-                    $srv->join_room( $room_name );
+                    $srv->join_room( $2 );
                 }
                 elsif ( $1 eq 'part' or $1 eq 'leave' ) {
-					$room_name = '#all' if (not defined $room_name);
-                    $srv->part( $room_name || $current_room );
+                    $srv->part( $2 || $current_room );
                 }
                 elsif ( $1 eq 'nick' ) {
                     my ( undef, $nick, $pass ) = split / /, $msg, 3;
@@ -87,20 +85,20 @@ my $client = Local::Chat::Client->new(
                     $srv->nick( $nick );
                 }
                 elsif ( $1 eq 'room' ) {
-					if (not defined $room_name) {
+					if (not defined $2) {
 						$interface->add_message( "Forget room name", RED );
 						return 1;
 					}
-                    if ( exists $rooms_and_users{$room_name} ) {
-                        $current_room = $room_name;
-                        $interface->add_message( "Default room changed to '$room_name'" );
+                    if ( exists $rooms_and_users{$2} ) {
+                        $current_room = $2;
+                        $interface->add_message( "Default room changed to '$2'" );
                     }
                     else {
-                        $interface->add_error( "There is no such room '$room_name'" );
+                        $interface->add_error( "There is no such room '$2'" );
                     }
                 }
                 elsif ( $1 eq 'msg' ) {
-					if (not defined $room_name) {
+					if (not defined $2) {
 						$interface->add_message( "Forget room name", RED );
 						return 1;
 					}
@@ -108,7 +106,6 @@ my $client = Local::Chat::Client->new(
                     $srv->message({ to => $nick, text => $message });
                 }
                 elsif ( $1 eq 'members' ) {
-					$room_name = '#all' if (not defined $room_name);
                     $srv->members( $2 || $current_room );
                 }
                 elsif ( $1 eq 'kick' or $1 eq 'ban' or $1 eq 'unban' ) {
@@ -117,12 +114,19 @@ my $client = Local::Chat::Client->new(
                     $srv->kick_ban_unban( $cmd, $user, $room || $current_room );
                 }
                 elsif ( $1 eq 'title' ) {
-					if (not defined $3) {
+					if (not defined $2) {
 						$interface->add_message( "Forget new room name", RED );
 						return 1;
 					}
-					$room_name = '#all' if (not defined $room_name);
-					$srv->title({room => $room_name, title => $3});
+					my $message;
+					if (not defined $3) {
+						$message = {room => $current_room, title => $2};
+					}
+					else {
+						$message = {room => $2, title => $3};
+					}
+					$srv->title($message);
+				}
                 else {
                     $interface->add_message( "Unknown command '/$1'", RED );
                 }
@@ -173,7 +177,7 @@ my $client = Local::Chat::Client->new(
     },
     on_title => sub {
         my ($srv, $message) = @_;
-        $rooms_and_users{$message->{room}}->{title} = $message->{title};
+        $rooms_and_users{$message->{room}}->{title} = $message->{title} || '';
         $interface->add_message("* $message->{from} установил тему $message->{room}: $message->{title}", RED);
     },
     on_mode => sub {
