@@ -1,0 +1,80 @@
+title Local Chat Server: Rooms
+
+participantspacing equal
+
+actor User
+participant "#my" as My
+actor Other
+
+User -> My: JOIN { room: #my }
+note over My: This is new room. Server creates it.\nUser became and administrator of it
+My -> User: ROOM { room: #my, moderated: false, members: [] }
+note over My: members:[{ user: User, role: admin, voice: true }]
+
+Other -> My: JOIN { room: #my }
+My -> Other: ROOM { room: #my, moderated: false, members: [] }
+note over My: members:[{ user: User, role: admin, voice: true },\n{ user: Other, role: guest, voice: true }]
+
+parallel
+My -> User: JOIN { room: #my, user: Other }
+My -> Other: JOIN { room: #my, user: Other }
+parallel off
+
+User -> My: TITLE { room: #my, title: "XX" }
+parallel
+My -> User: TITLE { room: #my, title: "XX" }
+My -> Other: TITLE { room: #my, title: "XX" }
+parallel off
+
+User -> My: MODE { room: #my, moderated: true }
+parallel
+My -> User: MODE { room: #my, moderated: true }
+My -> Other: MODE { room: #my, moderated: true }
+parallel off
+
+User -> My: MODE { room: #my, user: Other, voice: false }
+parallel
+My -> User: MODE { room: #my, user: Other, voice: false }
+My -> Other: MODE { room: #my, user: Other, voice: false }
+parallel off
+
+note over My: user Other was devoiced. Any his message would be discarded
+
+Other -> My: MSG { to : My, text: Why? }
+My -> Other: ERROR: MSG/NOVOICE
+
+User -> My: MODE { room: #my, user: Other, voice: true, role : "moderator" }
+parallel
+My -> User: MODE { room: #my, user: Other, voice: true, role : "moderator" }
+My -> Other: MODE { room: #my, user: Other, voice: true, role : "moderator" }
+parallel off
+
+note over My: Now user Other can set MODE voice on guests
+
+note over User: User tired of Other
+User-> My: BAN { room: #my, user: Other }
+parallel
+My -> User: BAN { room: #my, user: Other }
+My -> Other: BAN { room: #my, user: Other }
+parallel off
+
+
+note over My: Other can no longer join this room
+User-> My: KICK { room: #my, user: Other }
+parallel
+My -> User: PART { room: #my, user: Other }
+My -> Other: PART { room: #my, user: Other }
+parallel off
+
+Other -> My: MSG { to : My, text: WTF? }
+My -> Other: ERROR: MSG/NOTJOINED
+Other -> My: JOIN { room: #my }
+My -> Other: ERROR: JOIN/BANNED
+
+User-> My: UNBAN { room: #my, user: Other }
+My -> User: UNBAN { room: #my, user: Other }
+
+User -> My: PART { room: #my }
+My -> User: PART { room: #my, user: User }
+
+note over My: Last user left the room\nRoom is discarded

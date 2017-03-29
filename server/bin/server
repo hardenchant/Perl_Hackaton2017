@@ -1,0 +1,18 @@
+#!/usr/bin/env perl
+
+use 5.016;
+use strict;
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use EV;
+use Local::Chat::Server;
+use YAML;
+
+my $config = YAML::LoadFile("$FindBin::Bin/../etc/server.yaml");
+my $server = Local::Chat::Server->new($config);
+# $server->listen;
+$server->accept;
+
+EV::loop;

@@ -1,0 +1,52 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use utf8;
+use Data::Dumper;
+use Getopt::Long;
+use Local::Chat::Client;
+use YAML;
+
+my $config = YAML::LoadFile("$FindBin::Bin/../etc/$FindBin::Script.yaml");
+
+$SIG{INT} = $SIG{TERM} = sub { warn "Bot ".$config->{bot_id}." stoping"; exit(0)};
+
+GetOptions(
+	'host=s' => \$config->{host},
+	'port=s' => \$config->{port},
+	'trace'  => \$config->{trace},
+);
+
+while (1) {
+	eval {
+		my $bot;
+		$bot = Local::Chat::Client->new(
+			nick    => $config->{nick},
+			host    => $config->{host},
+			port    => $config->{port},
+			trace   => $config->{trace},
+			on_room => sub {
+				my ($srv, $message) = @_;
+				$srv->message("Waiting for message");
+			},
+			on_msg => sub {
+				my ( $srv, $message ) = @_;
+				if ($message->{text} eq '!who') {
+					$srv->message('i am '.$config->{bot_id});
+				} elsif($message->{from} ne $bot->nick) {
+					$srv->message($message->{text});
+				}
+			},
+			on_error => sub {
+				my ( $srv, $message ) = @_;
+				die "Error message: ". Data::Dumper->Dump([$message], ['message']);
+			},
+		);
+		$bot->poll;
+	} or do {
+		warn "Restart bot $config->{nick}";
+	};
+	sleep 1;
+}

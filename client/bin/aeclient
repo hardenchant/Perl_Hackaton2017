@@ -1,0 +1,152 @@
+#!/usr/bin/env perl
+
+use 5.016;
+BEGIN {if($]<5.018){package experimental; use warnings::register;}} no warnings 'experimental';
+use strict;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use EV;
+use YAML;
+use DDP;
+
+use Getopt::Long;
+use AnyEvent::ReadLine::Gnu;
+use Local::Chat::AnyEvent::Client;
+use Local::Chat::AnyEvent::ReadlineLog;
+
+my $config = YAML::LoadFile("$FindBin::Bin/../etc/$FindBin::Script.yaml");
+
+GetOptions(
+	'h|host=s' => \$config->{host},
+	'p|port=s' => \$config->{port},
+	't|trace'  => \$config->{trace},
+	'd|debug'  => \$config->{debug},
+);
+
+our $R = "\e[31m";
+our $BR = "\e[1;31m";
+our $G = "\e[32m";
+our $BG = "\e[1;32m";
+our $Y = "\e[33m";
+our $BY = "\e[1;33m";
+our $B = "\e[34m";
+our $BB = "\e[1;34m";
+our $M = "\e[35m";
+our $BM = "\e[1;35m";
+our $C = "\e[36m";
+our $BC = "\e[1;36m";
+our $W = "\e[37m";
+our $BW = "\e[1;37m";
+our $X = "\e[0m";
+
+sub rsay(@) {
+	AnyEvent::ReadLine::Gnu->print(join "", @_, "$X\n");
+}
+
+my $default = '#all';
+my $client;
+my $input = sub {
+	return EV::unloop unless defined $_[0];
+	given($_[0]) {
+		when (m{^/msg(?: (?<to>[@#]\w+)|) (?<text>.+)}) {
+			my $to = $+{to} // $default;
+			my $text = $+{text};
+			$client->MSG($to,$text);
+		}
+		when (m{^/title(?: (?<room>[#]\w+)|) (?<text>.+)}) {
+			my $room = $+{room} // $default;
+			my $text = $+{text};
+			$client->TITLE($room,$text);
+		}
+		when (m{^/join (#\w+)}) {
+			$client->JOIN($1);
+		}
+		when (m{^/part (#\w+)}) {
+			$client->PART($1);
+		}
+		when (m{^/list}) {
+			$client->LIST($1);
+		}
+		when (m{^/nick \@?(\w+)}) {
+			$client->AUTH($1, $client->password);
+		}
+		when (m{^/(\w+)}) {
+			rsay "${R}Unknown client command: $BR$1";
+		}
+		default {
+			if (length) {
+				$client->MSG($default,$_);
+			}
+		}
+	}
+	# AnyEvent::ReadLine::Gnu->print("you entered: $_[0]\n");
+};
+my $rl = AnyEvent::ReadLine::Gnu->new(
+	prompt => "> ",
+	on_line => $input,
+);
+$client = Local::Chat::AnyEvent::Client->new(
+	%$config,
+	log => Local::Chat::AnyEvent::ReadlineLog->new(),
+);
+
+$rl->hide;
+
+$client->on(
+	connected => sub {
+		# say "Connected";
+		$rl->show;
+		$client->MSG($default, "Hello \e[1;31mall\e[0m!");
+	},
+	disconnected => sub {
+		say "disconnected: @_";
+		$rl->hide;
+	},
+	error => sub {
+		my $data = shift;
+		rsay "$BR! Error$X$R: $data->{text}";
+	},
+	msg => sub {
+		my $data = shift;
+		if ($data->{to} =~ /^#/) {
+			rsay "$BW$data->{to}$X$W> $G$data->{from}$X$W: $data->{text}";
+		}
+		else {
+			rsay "${BW}PRIV$X$W> $G$data->{from}$X$W: $data->{text}";
+		}
+	},
+	nick => sub {
+		my $data = shift;
+		rsay "$Y* Your name was set to $BY$data->{nick}";
+		$AnyEvent::ReadLine::Gnu::prompt = "$data->{nick}> ";
+		$rl->rl_set_prompt("$data->{nick}> ");
+		$rl->redisplay;
+	},
+	join => sub {
+		my $data = shift;
+		rsay "$G> User $BG$data->{nick}$X$G joined the room $BG$data->{room}";
+	},
+	part => sub {
+		my $data = shift;
+		rsay "$Y> User $BY$data->{nick}$X$Y left the room $BY$data->{room}";
+	},
+	room => sub {
+		my $data = shift;
+		rsay "$BW$data->{room}> $data->{title} : ".($data->{moderated} ? "moderated" : "free speech");
+		rsay "$BW$data->{room}> Members: ".join ", ", map {
+			(
+				$_->{role} eq 'admin' ? "!" :
+				$_->{role} eq 'moderator' ? "%" :
+				$_->{voice} ? "+" : ''
+			).$_->{nick}
+		} sort { $a->{nick} cmp $b->{nick} } @{ $data->{members} };
+	},
+	title => sub {
+		my $data = shift;
+		rsay "$BW$data->{room}> User $data->{from} set topic to $data->{title}";
+	},
+);
+
+$client->connect();
+
+EV::loop;

@@ -1,0 +1,44 @@
+title Local Chat Server: Auth
+
+participantspacing equal
+#participantspacing gives manual control of spacing between participants, equal: equal distance between all participants, number i.e. 20.5: minimum space
+
+actor User
+participant Server
+actor Other
+
+User -> Server: AUTH { v:1, nick : User1, seq: 1 }
+note over Server: Server accepted first auth
+Server -> User: NICK { nick: User1, seq: 1 }
+
+User -> Server: AUTH { v:1, nick : User2, seq: 2 }
+note over Server: Server accepted change of nickname
+Server -> User: NICK { nick: User2, seq: 2 }
+note over Server: Notify others about rename
+Server -> Other: RENAME { from: @User1, nick: User2  }
+
+== Connection closed ==
+
+User -> Server: AUTH { v:2, nick : User1, password: Pwd, seq: 1 }
+note over Server: Server accepted first auth, remember Pwd for User1
+Server -> User: NICK { nick: User1, seq: 1 }
+
+User -> Server: AUTH { v:2, nick: User2, password: Pwd2, seq: 2 }
+note over Server: Rename to new nick User2. Since it's first login, remember Pwd2 for User2
+Server -> User: NICK { nick: User2, seq: 2 }
+note over Server: Notify others about rename
+Server -> Other: RENAME { from: @User1, nick: User2  }
+
+== Connection closed ==
+
+User -> Server: AUTH { v:1, nick : User1, seq: 1 }
+note over Server: Server refuses AUTH v1, since nick is protected with password
+Server -> User: ERROR { AUTH/PROTECTED }
+
+== Connection closed ==
+
+User -> Server: AUTH { v:2, nick : User1, password: PwdBad, seq: 1 }
+note over Server: Server refuses password
+Server -> User: ERROR { AUTH/WRONG }
+
+== Connection closed ==

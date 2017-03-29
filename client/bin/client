@@ -1,0 +1,232 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use utf8;
+
+use DDP;
+use Encode qw(decode_utf8);
+use Getopt::Long;
+use List::Util qw/first/;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use open qw(:std :utf8);
+
+use Term::ReadLine;
+use IO::Select;
+use Local::Chat::Client;
+use Local::Chat::TerminalInterface ':const';
+use Local::Chat::Tools;
+use YAML;
+
+$|=1;
+
+my $ROLES_SIGILS = { admin => '!', moderator => '%', guest => '' };
+my $DEFAULT_ROOM = '#all';
+
+my $config = YAML::LoadFile("$FindBin::Bin/../etc/$FindBin::Script.yaml");
+
+$SIG{INT} = $SIG{TERM} = sub { warn "Bot ".$config->{bot_id}." stoping"; exit(0)};
+
+GetOptions(
+    'host=s' => \$config->{host},
+    'port=s' => \$config->{port},
+    'trace'  => \$config->{trace},
+    'debug'  => \$config->{debug},
+);
+
+my $term = Term::ReadLine->new( 'Simple perl chat' );
+$term->MinLine();
+
+my $my_nick = $config->{nick} || decode_utf8 $term->readline('Enter your nick> ');
+$term->MinLine(1);
+
+my $interface = Local::Chat::TerminalInterface->new( output => $term->OUT );
+$interface->print_prompt;
+
+sub stop {
+    $interface->finish();
+    exit;
+}
+local $SIG{TERM} = $SIG{INT} = \&stop;
+
+my $current_room;
+my %rooms_and_users;
+my $client = Local::Chat::Client->new(
+    nick => $my_nick,
+    host => $config->{host},
+    port => $config->{port},
+    trace => $config->{trace},
+    on_fd => sub {
+        my ($srv, $fd) = @_;
+        if ($fd == $term->IN) {
+            my $msg = decode_utf8 $term->readline('');
+            stop() unless defined $msg;
+            $interface->redraw_output;
+            $interface->print_prompt;
+            return 1 unless length $msg;
+            $term->addhistory( $msg );
+            if ( $msg =~ m{^/(\w+)(?:\s+(\S+))*$} ) {
+                if ( $1 eq 'join' ) {
+                    $srv->join_room( $2 );
+                }
+                elsif ( $1 eq 'part' or $1 eq 'leave' ) {
+                    $srv->part( $2 || $current_room );
+                }
+                elsif ( $1 eq 'nick' ) {
+                    my ( undef, $nick, $pass ) = split / /, $msg, 3;
+                    $srv->nick_pass( $pass ) if $pass;
+                    $srv->nick( $nick );
+                }
+                elsif ( $1 eq 'room' ) {
+                    if ( exists $rooms_and_users{$2} ) {
+                        $current_room = $2;
+                        $interface->add_message( "Default room changed to '$2'" );
+                    }
+                    else {
+                        $interface->add_error( "There is no such room '$2'" );
+                    }
+                }
+                elsif ( $1 eq 'msg' ) {
+                    my ( undef, $nick, $message ) = split / /, $msg, 3;
+                    $srv->message({ to => $nick, text => $message });
+                }
+                elsif ( $1 eq 'members' ) {
+                    $srv->members( $2 || $current_room );
+                }
+                elsif ( $1 eq 'kick' or $1 eq 'ban' or $1 eq 'unban' ) {
+                    my ( $cmd, $user, $room ) = split / /, $msg, 3;
+                    $cmd =~ s|^/||;
+                    $srv->kick_ban_unban( $cmd, $user, $room || $current_room );
+                }
+                else {
+                    $interface->add_message( "Unknown command '/$1'", RED );
+                }
+                return;
+            }
+            $srv->message({ text => $msg, to => $current_room });
+            return 1;
+        }
+        else {
+            return 0;
+        }
+    },
+    on_msg => sub {
+        my ($srv, $message) = @_;
+        my $room = $message->{room} || $DEFAULT_ROOM;
+        my $moderated = $rooms_and_users{$room}->{moderated} || 0;
+        my $members = $rooms_and_users{$room}->{memebers} || [];
+        my $member  = first { $_->{nick} eq $message->{from} } @$members; 
+        my $role_sigil = $member ? ( $ROLES_SIGILS->{$member->{role}} || '' ) : ''; 
+        $role_sigil ||= '+' if $moderated && $member->{voice}; 
+        $interface->add_message( ($room ne $DEFAULT_ROOM ? $room." " : "") . $role_sigil . $message->{from} . ": ". $message->{text} );
+    },
+    on_rename => sub {
+        my ($srv, $message) = @_;
+        $interface->add_message( "* Пользователь $message->{from} изменил имя на $message->{nick}", RED );
+    },
+    on_join => sub {
+        my ($srv, $message) = @_;
+        $interface->add_message( "> Пользователь $message->{nick} присоеденился к комнате $message->{room}", BLUE );
+    },
+    on_part => sub {
+        my ($srv, $message) = @_;
+        $current_room = $DEFAULT_ROOM if $message->{nick} eq $srv->nick;
+        @{$rooms_and_users{$message->{room}}->{members}} = grep { $_->{nick} ne $message->{nick} } @{$rooms_and_users{$message->{room}}->{members}};
+        $interface->add_message( "< Пользователь $message->{nick} покинул комнату $message->{room}", BLUE );
+    },
+    on_room => sub {
+        my ($srv, $message) = @_;
+        $rooms_and_users{$message->{room}}->{members} = $message->{members};
+        $rooms_and_users{$message->{room}}->{moderated} = $message->{moderated};
+        $rooms_and_users{$message->{room}}->{title} = $message->{title} || '';
+        $current_room = $message->{room};
+        $interface->add_message(
+            "* Вы присоединились к ".($message->{moderated} ? "модерируемой " : "").
+            "комнате ".($message->{title} || $message->{room}),
+            BLUE
+        );
+    },
+    on_title => sub {
+        my ($srv, $message) = @_;
+        $rooms_and_users{$message->{room}}->{title} = $message->{title} || '';
+        $interface->add_message("* $message->{from} установил тему $message->{room}: $message->{title}", RED);
+    },
+    on_mode => sub {
+        my ($srv, $message) = @_;
+        $rooms_and_users{$message->{room}}->{moderated} = $message->{moderated} ? 1 : 0;
+        $interface->add_message(
+            "* Комната $message->{room} теперь ".($message->{moderated} ? "" : "не")."модерируемая", RED
+        );
+    },
+    on_grant => sub {
+        my ($srv, $message) = @_;
+        for my $member (@{$rooms_and_users{$message->{room}}->{members}}) {
+            if($message->{nick} eq $member->{nick}) {
+                if(exists $message->{voice}) {
+                    $member->{voice} = $message->{voice};
+                    $interface->add_message(
+                        "* Пользователь $member->{nick} ".($message->{voice} ? "получил голос" : "лишен голоса")." в $message->{room}", RED
+                    );
+                }
+                if(exists $message->{role}) {
+                    $member->{role} = $message->{role};
+                    $interface->add_message(
+                        "* Пользователь $member->{nick} теперь '".$message->{role}."' в $message->{room}", RED
+                    );
+                }
+            }
+        }
+    },
+    on_kick => sub {
+        my ($srv, $message) = @_;
+        $current_room = $DEFAULT_ROOM if $message->{nick} eq $srv->nick;
+        @{$rooms_and_users{$message->{room}}->{members}} = grep { $_->{nick} ne $message->{nick} } @{$rooms_and_users{$message->{room}}->{members}};
+        $interface->add_message( "* Пользователь $message->{nick} был изгнан из комнаты $message->{room}", RED );
+    },
+    on_ban => sub {
+        my ($srv, $message) = @_;
+        $current_room = $DEFAULT_ROOM if $message->{nick} eq $srv->nick;
+        @{$rooms_and_users{$message->{room}}->{members}} = grep { $_->{nick} ne $message->{nick} } @{$rooms_and_users{$message->{room}}->{members}};
+        $interface->add_message( "* Пользователь $message->{nick} был забанен в комнате $message->{room}", RED );
+    },
+    on_disconect => sub {
+        my ($srv) = @_;
+        $interface->add_message( '- Сервер оборвал соединение -' );
+    },
+    on_error => sub {
+        my ($srv, $message) = @_;
+        $interface->add_error( $message->{text} );
+    },
+    on_write => sub {
+        my ($srv, $pkt) = @_;
+        return unless $config->{debug};
+        $interface->add_message( "WR: ".jdump($pkt), YELLOW );
+    },
+    on_read => sub {
+        my ($srv, $pkt) = @_;
+        return unless $config->{debug};
+        $interface->add_message( "RD: ".jdump($pkt), GREEN );
+    },
+);
+
+$client->sel->add($term->IN);
+my $last_error = time();
+while () {
+    eval {
+        $client->connect;
+    };
+    if ($@) {
+        if (time() - $last_error > 60) {
+            $interface->add_message( '~~ Ожидание сервера ~~' );
+            $last_error = time();
+        }
+        sleep(1);
+    }
+    else {
+        $client->poll();
+    }
+
+}
+
+stop();

@@ -1,0 +1,42 @@
+title Local Chat Server: First login
+
+actor User1
+actor User2
+actor User3
+participant "#all" as All
+participant Server
+
+User1 -> Server: AUTH { nick : User1 }
+Server -> User1: NICK { nick: User1 }
+
+All -> User1: ROOM { room: #all, title: "..", members: [] }
+All -> User1: JOIN { room: #all, user: User1 }
+note left of User1: User1 joined #all
+
+User2 -> Server: AUTH { nick : User2 }
+Server -> User2: NICK { nick: User2 }
+
+All -> User2: ROOM { room: #all, title: "..", members: [] }
+
+All -> User1: JOIN { room: #all, user: User2 }
+note left of User1: User2 joined #all
+All -> User2: JOIN { room: #all, user: User2 }
+note left of User2: User2 joined #all
+
+User1 -> All: MSG{ to : #all, text: Hi! }
+All -> User1: MSG { from : User1, to: #all, text: Hi! }
+note left of User1: User1 in #all: Hi!
+All -> User2: MSG { from : User1, to: #all, text: Hi! }
+note left of User2: User1 in #all: Hi!
+
+User3 -> Server: AUTH { nick : User1 }
+note right of Server: User1 already exists, Give him name User3
+Server -> User3: NICK { nick: User3 }
+
+All -> User3: ROOM { room: #all, title: "..", members: [] }
+All -> User3: JOIN { room: #all, user: User3 }
+note left of User3: User3 joined #all
+All -> User2: JOIN { room: #all, user: User3 }
+note left of User2: User3 joined #all
+All -> User1: JOIN { room: #all, user: User3 }
+note left of User1: User3 joined #all
