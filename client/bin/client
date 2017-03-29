@@ -116,6 +116,13 @@ my $client = Local::Chat::Client->new(
                     $cmd =~ s|^/||;
                     $srv->kick_ban_unban( $cmd, $user, $room || $current_room );
                 }
+                elsif ( $1 eq 'title' ) {
+					if (not defined $3) {
+						$interface->add_message( "Forget new room name", RED );
+						return 1;
+					}
+					$room_name = '#all' if (not defined $room_name);
+					$srv->title({room => $room_name, title => $3});
                 else {
                     $interface->add_message( "Unknown command '/$1'", RED );
                 }
@@ -166,7 +173,7 @@ my $client = Local::Chat::Client->new(
     },
     on_title => sub {
         my ($srv, $message) = @_;
-        $rooms_and_users{$message->{room}}->{title} = $message->{title} || '';
+        $rooms_and_users{$message->{room}}->{title} = $message->{title};
         $interface->add_message("* $message->{from} установил тему $message->{room}: $message->{title}", RED);
     },
     on_mode => sub {
