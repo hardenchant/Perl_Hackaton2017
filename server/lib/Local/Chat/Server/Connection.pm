@@ -100,6 +100,7 @@ our %FIELDS = (
 	room     => qr(^#\w{1,32}$),
 	to       => qr(^(\w+)?([@#]\w{1,32})$),
 	text     => qr(^.+$)s,
+	title    => qr(^\w+$),
 );
 
 our %CMDS = (
@@ -109,6 +110,24 @@ our %CMDS = (
 	},
 	MSG => {
 		1 => { fields => [qw(to text)] },
+	},
+	JOIN => {
+		1 => { fields => [qw(room)] },
+	},
+	LEAVE => {
+		1 => { fields => [qw(room)] },
+	},
+	PART => {
+		1 => { fields => [qw(room)] },
+	},
+	ROOM => {
+		1 => { fields => [qw(room)] },
+	},
+	TITLE => {
+		1 => { fields => [qw(room title)] },
+	},
+	MEMBERS => {
+		1 => { fields => [qw(room)] },
 	},
 );
 
