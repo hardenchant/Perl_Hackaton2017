@@ -75,6 +75,20 @@ sub MEMBERS {
 	});
 }
 
+sub TITLE {
+	my $self = shift;
+	my $conn = shift;
+	my $data = shift;
+
+	for my $c ( values %{$self->members}) {
+		$c->event(TITLE => {
+			room => $data->{room},
+			from => $conn->nick,
+			title => $data->{title},
+		});
+	}
+}
+
 sub MSG {
 	my $self = shift;
 	my $conn = shift;
