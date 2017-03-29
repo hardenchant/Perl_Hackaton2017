@@ -25,11 +25,9 @@ my $p;
 $client->on(
 	connected => sub {
 		$client->MSG('#all', "See my fortunes!!!");
-		#warn 'X' x 99;
 
 		$p = AE::timer 0, 60, sub {
 					my $req = `fortune`;
-					#$req =~ s/\n/ /msg;
 					$req =~ s/\s+/ /msg;
 	    			$client->MSG('#all', "Fresh fortune: ".$req);
 	    			$p;
@@ -39,9 +37,7 @@ $client->on(
 		my $message = shift;
 		if ($message->{text} eq '!who') {
 			$client->MSG('#all', 'i am '.$config->{bot_id});
-		} elsif($message->{from} ne $client->nick) {
-			$client->MSG('#all', $message->{text});
-		}
+		} 
 	},
 	error => sub {
 		my $data = shift;
