@@ -20,6 +20,9 @@ sub new {
 		or die "config.host required\n";
 	$self->{port} = $conf->{port}
 		// die "config.port required\n";
+	$self->{max_msg_avg} = $conf->{max_msg_avg};
+
+	$self->{avg_ban_time} = $conf->{avg_ban_time};
 
 	$self->{log} = $conf->{log} // $log;
 
@@ -56,7 +59,10 @@ sub accept {
 				id     => ++$self->{seq},
 				server => $self,
 				core   => $self->{core},
+
 			);
+			$connection->{max_msg_avg} = $self->{max_msg_avg};
+			$connection->{avg_ban_time} = $self->{avg_ban_time};
 			$self->{connections}{ $connection->id } = $connection;
 		},
 		sub { # server prepare callback

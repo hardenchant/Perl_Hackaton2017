@@ -150,8 +150,39 @@ sub MSG {
 	my $self = shift;
 	my $conn = shift;
 	my $data = shift;
+	$data->{timestamp} = time;
 
 	my $to = $data->{to};
+	if($conn->{BAN}{FLAG}){
+		if ($data->{timestamp} > $conn->{BAN}{OVER_TIME}){
+			$conn->{BAN}{FLAG} = 0;
+		}
+		else
+		{
+			my $time = $conn->{BAN}{OVER_TIME} - $data->{timestamp};
+			return $conn->error($data->{seq}, "You are banned :c\nRemaining: $time\n");
+		}
+	}
+	if ($conn->{avg_ban_time}) {
+	 	if (($#{$conn->{last_mes}}+1) < $conn->{max_msg_avg}) 
+	 	{
+			push @{$conn->{last_mes}},  $data->{timestamp};
+	 	}
+	 	else
+	 	{
+	 		if ($data->{timestamp} - $conn->{last_mes}[0] < 60){
+	 			$conn->{BAN}{OVER_TIME} = $data->{timestamp} + 60 * $conn->{avg_ban_time};
+	 			$conn->{BAN}{FLAG} = 1;
+	 			return $conn->error($data->{seq}, "You are banned :c\nDon't spam pls.\n");
+	 		}
+	 		else
+	 		{
+	 			shift @{$conn->{last_mes}};
+	 			push @{$conn->{last_mes}},  $data->{timestamp}		
+	 		}
+		}
+	}
+
 	if ($to =~ m/^#/) { # msg to room:
 		my $room = $self->rooms->{$to};
 		return $conn->error($data->{seq}, "Room not found `$to`")
