@@ -11,7 +11,7 @@ sub new {
 	$self->{moderated} = "";
 	$self->{members} = {};
 	$self->{acl} = {};
-	$self->{log} = 
+	$self->{log} =
 	$self->log->info('Room %s created', $self->name);
 	return $self;
 }
@@ -27,7 +27,6 @@ sub JOIN {
 	my $data = shift;
 
 	$self->members->{ 0+$conn } = $conn;
-	$self->MEMBERS($conn, $data);
 
 	for my $c ( values %{$self->members} ) {
 		$c->event(JOIN => {
@@ -36,6 +35,7 @@ sub JOIN {
 			$c == $conn ? ( seq => $data->{seq}) : (),
 		});
 	}
+	$self->MEMBERS($conn, $data);
 }
 
 sub PART {
@@ -66,7 +66,7 @@ sub MEMBERS {
 		};
 	}
 
-	$conn->event(ROOM => {
+	$conn->event(MEMBERS => {
 		room => $self->name,
 		title => $self->title,
 		members => [ @answer ],
