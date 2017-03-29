@@ -146,6 +146,24 @@ sub MEMBERS {
 	$room->MEMBERS($conn,$data);
 }
 
+sub TITLE {
+	my $self = shift;
+	my $conn = shift;
+	my $data = shift;
+	my $room_name = $data->{room};
+	my $new_name = $data->{title};
+
+	my $user = $self->online->{$conn->nick}{conn};
+	my $room = $self->rooms->{$room_name} or return $conn->error($data->{seq}, "Room not found `$room_name`");
+	
+	if($room_name ne '#all') {
+        $room->TITLE($conn, $data);
+	    $room->title = $new_name;
+	    weaken($self->rooms->{$room_name}) if $room_name ne '#all' and !isweak($self->rooms->{$room_name});
+	    $self->online->{ $conn->nick }{rooms}{$room_name} = $room;
+	}
+}
+
 sub MSG {
 	my $self = shift;
 	my $conn = shift;
