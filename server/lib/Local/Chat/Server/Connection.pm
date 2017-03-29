@@ -161,7 +161,7 @@ sub incoming_packet {
 	if (!$self->nick and $pkt->{cmd} ne 'AUTH') {
 		return $self->error($seq, 'Unauthorized');
 	}
-	
+
 	my $param = $CMDS{$pkt->{cmd}}{ $pkt->{v} };
 	my $data = $pkt->{data};
 
@@ -275,7 +275,7 @@ sub write {
 		return;
 	}
 	my $pkt = $JSON->encode($data);
-	
+
 	if ($self->{trace}) {
 		my $copy = $pkt;
 		utf8::decode($copy);

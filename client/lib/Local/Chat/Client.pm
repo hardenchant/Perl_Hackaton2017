@@ -17,12 +17,13 @@ BEGIN {
 	binmode $_, ':utf8' for \*STDIN, \*STDOUT, \*STDERR;
 }
 
-use Class::XSAccessor accessors => [qw ( 
-	fh remote connected rbuf trace host port sel 
+use Class::XSAccessor accessors => [qw (
+	fh remote connected rbuf trace host port sel
 	on_disconnect on_fd on_hello on_idle on_msg on_error
 	on_join on_part on_rename on_room on_title on_mode on_grant
 	on_kick on_ban
 	on_write on_read
+    on_members
 	nick password
 ) ];
 
@@ -53,7 +54,7 @@ sub new {
 	my $pkg  = shift;
 	my %conf = @_;
 
-	$conf{host} = $conf{host} or 
+	$conf{host} = $conf{host} or
 		die "config.host required\n";
 
 	$conf{port} = $conf{port} // 2345;
@@ -203,7 +204,7 @@ sub process_packet {
 				$self->{nick} = $pkt->{data}{nick};
 			}
 		}
-		when( [qw(ERROR JOIN PART RENAME ROOM TITLE MODE GRANT)]) {
+		when( [qw(ERROR JOIN PART RENAME ROOM TITLE MODE GRANT MEMBERS)]) {
 			my $callback = 'on_'. lc $pkt->{event};
 			if ($self->can($callback)) {
 				$self->$callback and

@@ -156,6 +156,7 @@ my $client = Local::Chat::Client->new(
     on_join => sub {
         my ($srv, $message) = @_;
         $interface->add_message( "> Пользователь $message->{nick} присоеденился к комнате $message->{room}", BLUE );
+        $current_room = $message->{room};
     },
     on_part => sub {
         my ($srv, $message) = @_;
@@ -236,6 +237,13 @@ my $client = Local::Chat::Client->new(
         return unless $config->{debug};
         $interface->add_message( "RD: ".jdump($pkt), GREEN );
     },
+    on_members => sub {
+        my ($srv, $message) = @_;
+        $interface->add_message("-- Список пользователей комнаты $message->{room}--");
+        foreach my $member (@{$message->{members}}) {
+            $interface->add_message("$member->{nick}");
+        }
+    }
 );
 
 $client->sel->add($term->IN);
