@@ -340,4 +340,11 @@ sub kick_ban_unban {
 	$self->command( ( uc $cmd ) => { nick => $user, room => $room } );
 }
 
+sub title {
+	my $self = shift;
+	my $msg = shift;
+	
+	$self->command( 'TITLE' => { room => $msg->{room}, title => $msg->{title} } );
+}
+
 1;

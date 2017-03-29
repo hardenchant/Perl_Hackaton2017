@@ -26,7 +26,7 @@ my $DEFAULT_ROOM = '#all';
 
 my $config = YAML::LoadFile("$FindBin::Bin/../etc/$FindBin::Script.yaml");
 
-$SIG{INT} = $SIG{TERM} = sub { warn "Bot ".$config->{bot_id}." stoping"; exit(0)};
+$SIG{INT} = $SIG{TERM} = sub { warn "\nBot ".($config->{bot_id} // "noname")." stoping"; exit(0)};
 
 GetOptions(
     'host=s' => \$config->{host},
@@ -70,6 +70,10 @@ my $client = Local::Chat::Client->new(
             $term->addhistory( $msg );
             if ( $msg =~ m{^/(\w+)(?:\s+(\S+))*$} ) {
                 if ( $1 eq 'join' ) {
+					if (not defined $2) {
+						$interface->add_message( "Forget room name", RED );
+						return 1;
+					}
                     $srv->join_room( $2 );
                 }
                 elsif ( $1 eq 'part' or $1 eq 'leave' ) {
@@ -81,6 +85,10 @@ my $client = Local::Chat::Client->new(
                     $srv->nick( $nick );
                 }
                 elsif ( $1 eq 'room' ) {
+					if (not defined $2) {
+						$interface->add_message( "Forget room name", RED );
+						return 1;
+					}
                     if ( exists $rooms_and_users{$2} ) {
                         $current_room = $2;
                         $interface->add_message( "Default room changed to '$2'" );
@@ -90,6 +98,10 @@ my $client = Local::Chat::Client->new(
                     }
                 }
                 elsif ( $1 eq 'msg' ) {
+					if (not defined $2) {
+						$interface->add_message( "Forget room name", RED );
+						return 1;
+					}
                     my ( undef, $nick, $message ) = split / /, $msg, 3;
                     $srv->message({ to => $nick, text => $message });
                 }
@@ -101,6 +113,20 @@ my $client = Local::Chat::Client->new(
                     $cmd =~ s|^/||;
                     $srv->kick_ban_unban( $cmd, $user, $room || $current_room );
                 }
+                elsif ( $1 eq 'title' ) {
+					if (not defined $2) {
+						$interface->add_message( "Forget new room name", RED );
+						return 1;
+					}
+					my $message;
+					if (not defined $3) {
+						$message = {room => $current_room, title => $2};
+					}
+					else {
+						$message = {room => $2, title => $3};
+					}
+					$srv->title($message);
+				}
                 else {
                     $interface->add_message( "Unknown command '/$1'", RED );
                 }
@@ -118,9 +144,9 @@ my $client = Local::Chat::Client->new(
         my $room = $message->{room} || $DEFAULT_ROOM;
         my $moderated = $rooms_and_users{$room}->{moderated} || 0;
         my $members = $rooms_and_users{$room}->{memebers} || [];
-        my $member  = first { $_->{nick} eq $message->{from} } @$members; 
-        my $role_sigil = $member ? ( $ROLES_SIGILS->{$member->{role}} || '' ) : ''; 
-        $role_sigil ||= '+' if $moderated && $member->{voice}; 
+        my $member  = first { $_->{nick} eq $message->{from} } @$members;
+        my $role_sigil = $member ? ( $ROLES_SIGILS->{$member->{role}} || '' ) : '';
+        $role_sigil ||= '+' if $moderated && $member->{voice};
         $interface->add_message( ($room ne $DEFAULT_ROOM ? $room." " : "") . $role_sigil . $message->{from} . ": ". $message->{text} );
     },
     on_rename => sub {

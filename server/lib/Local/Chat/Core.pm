@@ -119,6 +119,10 @@ sub PART {
 	my $room_name = $data->{room};
 
 	my $room = $self->rooms->{$room_name};
+    if ($room_name eq "#all") {
+        $self->log->debug('Trying to leave #all');
+        return;
+    }
 	unless (defined $room) {
 		$self->log->warn('Room `%s` not found', $room_name);
 		$conn->error($data->{seq}, 'Room not found');
@@ -142,12 +146,61 @@ sub MEMBERS {
 	$room->MEMBERS($conn,$data);
 }
 
+sub TITLE {
+	my $self = shift;
+	my $conn = shift;
+	my $data = shift;
+	my $room_name = $data->{room};
+	my $new_name = $data->{title};
+
+	my $user = $self->online->{$conn->nick}{conn};
+	my $room = $self->rooms->{$room_name} or return $conn->error($data->{seq}, "Room not found `$room_name`");
+	
+	if($room_name ne '#all') {
+        $room->TITLE($conn, $data);
+	    $room->title = $new_name;
+	    weaken($self->rooms->{$room_name}) if $room_name ne '#all' and !isweak($self->rooms->{$room_name});
+	    $self->online->{ $conn->nick }{rooms}{$room_name} = $room;
+	}
+}
+
 sub MSG {
 	my $self = shift;
 	my $conn = shift;
 	my $data = shift;
+	$data->{timestamp} = time;
 
 	my $to = $data->{to};
+	if($conn->{BAN}{FLAG}){
+		if ($data->{timestamp} > $conn->{BAN}{OVER_TIME}){
+			$conn->{BAN}{FLAG} = 0;
+		}
+		else
+		{
+			my $time = $conn->{BAN}{OVER_TIME} - $data->{timestamp};
+			return $conn->error($data->{seq}, "You are banned :c\nRemaining: $time\n");
+		}
+	}
+	if ($conn->{avg_ban_time}) {
+	 	if (($#{$conn->{last_mes}}+1) < $conn->{max_msg_avg}) 
+	 	{
+			push @{$conn->{last_mes}},  $data->{timestamp};
+	 	}
+	 	else
+	 	{
+	 		if ($data->{timestamp} - $conn->{last_mes}[0] < 60){
+	 			$conn->{BAN}{OVER_TIME} = $data->{timestamp} + 60 * $conn->{avg_ban_time};
+	 			$conn->{BAN}{FLAG} = 1;
+	 			return $conn->error($data->{seq}, "You are banned :c\nDon't spam pls.\n");
+	 		}
+	 		else
+	 		{
+	 			shift @{$conn->{last_mes}};
+	 			push @{$conn->{last_mes}},  $data->{timestamp}		
+	 		}
+		}
+	}
+
 	if ($to =~ m/^#/) { # msg to room:
 		my $room = $self->rooms->{$to};
 		return $conn->error($data->{seq}, "Room not found `$to`")
