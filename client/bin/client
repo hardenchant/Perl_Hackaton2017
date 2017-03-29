@@ -26,7 +26,7 @@ my $DEFAULT_ROOM = '#all';
 
 my $config = YAML::LoadFile("$FindBin::Bin/../etc/$FindBin::Script.yaml");
 
-$SIG{INT} = $SIG{TERM} = sub { warn "Bot ".$config->{bot_id}." stoping"; exit(0)};
+$SIG{INT} = $SIG{TERM} = sub { warn "\nBot ".($config->{bot_id} // "noname")." stoping"; exit(0)};
 
 GetOptions(
     'host=s' => \$config->{host},
@@ -39,6 +39,7 @@ my $term = Term::ReadLine->new( 'Simple perl chat' );
 $term->MinLine();
 
 my $my_nick = $config->{nick} || decode_utf8 $term->readline('Enter your nick> ');
+my $my_pass = $config->{password} || decode_utf8 $term->readline('Enter your password> ');
 $term->MinLine(1);
 
 my $interface = Local::Chat::TerminalInterface->new( output => $term->OUT );
@@ -54,6 +55,7 @@ my $current_room;
 my %rooms_and_users;
 my $client = Local::Chat::Client->new(
     nick => $my_nick,
+    password => $my_pass,
     host => $config->{host},
     port => $config->{port},
     trace => $config->{trace},
