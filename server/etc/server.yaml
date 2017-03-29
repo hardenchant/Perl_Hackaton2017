@@ -1,3 +1,5 @@
 ---
 host: 0.0.0.0
 port: 2345
+max_msg_avg: 5
+avg_ban_time: 1
