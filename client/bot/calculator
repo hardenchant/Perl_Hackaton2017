@@ -34,6 +34,7 @@ while (1) {
 				} elsif($message->{from} ne $bot->nick) {
 					my $str = $message->{text};
 					$str =~ /calculator ([\d\D]+)/;
+					$str =~ s/\^/\*\*/;
 					my $prim = eval "$1";
 
 					$srv->message($prim);
