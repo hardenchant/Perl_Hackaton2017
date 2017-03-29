@@ -166,6 +166,19 @@ sub MSG {
 		return $conn->error($data->{seq},  "Destination $to not found")
 			unless $reciever;
 
+		my $sndr = $self->online->{$conn->nick};
+
+		
+		
+		$sndr->{conn}->event(
+			MSG => {
+				from => $conn->nick,
+				to   => $to,
+				text => $data->{text},				
+			}
+		);
+		
+
 		$reciever->{conn}->event(
 			MSG => {
 				from => $conn->nick,
