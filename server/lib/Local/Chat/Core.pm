@@ -119,6 +119,10 @@ sub PART {
 	my $room_name = $data->{room};
 
 	my $room = $self->rooms->{$room_name};
+    if ($room_name eq "#all") {
+        $self->log->debug('Trying to leave #all');
+        return;
+    }
 	unless (defined $room) {
 		$self->log->warn('Room `%s` not found', $room_name);
 		$conn->error($data->{seq}, 'Room not found');
