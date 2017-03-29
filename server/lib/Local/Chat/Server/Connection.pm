@@ -100,7 +100,7 @@ our %FIELDS = (
 	room     => qr(^#\w{1,32}$),
 	to       => qr(^(\w+)?([@#]\w{1,32})$),
 	text     => qr(^.+$)s,
-	title     => qr(^#\w{1,32}$),
+	title     => qr(^\w+$),
 );
 
 our %CMDS = (
