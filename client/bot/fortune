@@ -1,0 +1,50 @@
+#!/usr/bin/env perl
+
+use 5.016;
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use utf8;
+use Getopt::Long;
+use Local::Chat::AnyEvent::Client;
+use EV;
+use YAML;
+
+my $config = YAML::LoadFile("$FindBin::Bin/../etc/$FindBin::Script.yaml");
+
+GetOptions(
+	'host=s' => \$config->{host},
+	'port=s' => \$config->{port},
+	'trace'  => \$config->{trace},
+);
+
+my $client = Local::Chat::AnyEvent::Client->new($config);
+
+my $p;
+$client->on(
+	connected => sub {
+		$client->MSG('#all', "See my fortunes!!!");
+		warn 'X' x 99;
+
+		$p = AE::timer 0, 60, sub {
+	    			$client->MSG('#all', `fortune`);
+	    			$p;
+				};
+	},
+	msg => sub {
+		my $message = shift;
+		if ($message->{text} eq '!who') {
+			$client->MSG('#all', 'i am '.$config->{bot_id});
+		} elsif($message->{from} ne $client->nick) {
+			$client->MSG('#all', $message->{text});
+		}
+	},
+	error => sub {
+		my $data = shift;
+		warn "Error message: $data->{text}";
+	},
+);
+
+$client->connect;
+EV::loop;

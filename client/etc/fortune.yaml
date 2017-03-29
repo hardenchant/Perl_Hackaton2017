@@ -1,0 +1,5 @@
+host: 127.0.0.1
+port: 2345
+trace: false
+nick: "fortune_bot"
+bot_id: "fortune"
