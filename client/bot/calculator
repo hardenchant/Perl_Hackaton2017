@@ -32,10 +32,14 @@ while (1) {
 				if ($message->{text} eq '!who') {
 					$srv->message('i am '.$config->{bot_id});
 				} elsif($message->{from} ne $bot->nick) {
-					$srv->message($message->{text});
+					my $str = $message->{text};
+					$str =~ /calculator ([\d\D]+)/;
+					my $prim = eval "$1";
+
+					$srv->message($prim);
 				}
 			},
-	
+
 		);
 		$bot->poll;
 	} or do {
