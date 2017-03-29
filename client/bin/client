@@ -26,7 +26,7 @@ my $DEFAULT_ROOM = '#all';
 
 my $config = YAML::LoadFile("$FindBin::Bin/../etc/$FindBin::Script.yaml");
 
-$SIG{INT} = $SIG{TERM} = sub { warn "Bot ".$config->{bot_id}." stoping"; exit(0)};
+$SIG{INT} = $SIG{TERM} = sub { warn "\nBot ".($config->{bot_id} // "noname")." stoping"; exit(0)};
 
 GetOptions(
     'host=s' => \$config->{host},
