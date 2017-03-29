@@ -69,15 +69,17 @@ my $client = Local::Chat::Client->new(
             return 1 unless length $msg;
             $term->addhistory( $msg );
             if ( $msg =~ m{^/(\w+)(?:\s+(\S+))*$} ) {
-				if (not defined $2) {
-					$interface->add_message( "Forget room name", RED );
-					return 1;
-				}
+            	my $room_name = $2;
                 if ( $1 eq 'join' ) {
-                    $srv->join_room( $2 );
+					if (not defined $room_name) {
+						$interface->add_message( "Forget room name", RED );
+						return 1;
+					}
+                    $srv->join_room( $room_name );
                 }
                 elsif ( $1 eq 'part' or $1 eq 'leave' ) {
-                    $srv->part( $2 || $current_room );
+					$room_name = '#all' if (not defined $room_name);
+                    $srv->part( $room_name || $current_room );
                 }
                 elsif ( $1 eq 'nick' ) {
                     my ( undef, $nick, $pass ) = split / /, $msg, 3;
@@ -85,19 +87,28 @@ my $client = Local::Chat::Client->new(
                     $srv->nick( $nick );
                 }
                 elsif ( $1 eq 'room' ) {
-                    if ( exists $rooms_and_users{$2} ) {
-                        $current_room = $2;
-                        $interface->add_message( "Default room changed to '$2'" );
+					if (not defined $room_name) {
+						$interface->add_message( "Forget room name", RED );
+						return 1;
+					}
+                    if ( exists $rooms_and_users{$room_name} ) {
+                        $current_room = $room_name;
+                        $interface->add_message( "Default room changed to '$room_name'" );
                     }
                     else {
-                        $interface->add_error( "There is no such room '$2'" );
+                        $interface->add_error( "There is no such room '$room_name'" );
                     }
                 }
                 elsif ( $1 eq 'msg' ) {
+					if (not defined $room_name) {
+						$interface->add_message( "Forget room name", RED );
+						return 1;
+					}
                     my ( undef, $nick, $message ) = split / /, $msg, 3;
                     $srv->message({ to => $nick, text => $message });
                 }
                 elsif ( $1 eq 'members' ) {
+					$room_name = '#all' if (not defined $room_name);
                     $srv->members( $2 || $current_room );
                 }
                 elsif ( $1 eq 'kick' or $1 eq 'ban' or $1 eq 'unban' ) {
